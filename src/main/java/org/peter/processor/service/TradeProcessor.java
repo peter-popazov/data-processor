@@ -1,22 +1,30 @@
 package org.peter.processor.service;
 
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.peter.processor.exporter.TradeExporter;
+import org.peter.processor.exception.UnsupportedFormatException;
+import org.peter.processor.io.ProcessType;
+import org.peter.processor.io.exporter.TradeExporter;
+import org.peter.processor.io.importer.TradeImporter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.io.*;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
+import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -33,36 +41,39 @@ public class TradeProcessor {
 
     private final StringRedisTemplate redisTemplate;
     private final Map<String, TradeExporter> exporters;
+    private final Map<String, TradeImporter> importers;
 
     @Autowired
-    public TradeProcessor(StringRedisTemplate redisTemplate, List<TradeExporter> tradeExporter) {
+    public TradeProcessor(StringRedisTemplate redisTemplate, List<TradeExporter> exporters, List<TradeImporter> importers) {
         this.redisTemplate = redisTemplate;
-        exporters = tradeExporter.stream().collect(Collectors.toMap(TradeExporter::getType, exporter -> exporter));
+        this.exporters = exporters.stream().collect(Collectors.toMap(TradeExporter::getType, exporter -> exporter));
+        this.importers = importers.stream().collect(Collectors.toMap(TradeImporter::getType, importer -> importer));
     }
 
-    public String processTrades(String filePath, String exportType) {
+    @SneakyThrows
+    public String processTrades(InputStream inputStream, String acceptHeader) {
+        String format = ProcessType.fromMimeType(acceptHeader).getType();
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
         List<Future<List<Map<String, String>>>> futures = new ArrayList<>();
         List<Map<String, String>> enrichedTrades = new ArrayList<>();
+        TradeImporter importer = importers.get(format);
+        TradeExporter exporter = exporters.get(format);
 
-        try (BufferedReader br = new BufferedReader(new FileReader(new ClassPathResource(filePath).getFile()))) {
-            br.readLine();
-            List<String[]> batch = new ArrayList<>();
+        if (importer == null || exporter == null) {
+            throw new UnsupportedFormatException("Unsupported file type: " + format);
+        }
 
-            String line;
-            while ((line = br.readLine()) != null) {
-                String[] columns = line.split(",");
-                if (columns.length == 4) {
-                    batch.add(new String[]{columns[0].trim(), columns[1].trim(), columns[2].trim(), columns[3].trim()});
-                } else {
-                    log.error("Invalid row, skipping...");
-                }
+        try (Stream<Map<String, String>> tradeStream = importer.importData(inputStream)) {
+
+            List<Map<String, String>> batch = new ArrayList<>();
+            tradeStream.forEach(trade -> {
+                batch.add(trade);
 
                 if (batch.size() >= batchSize) {
                     futures.add(processBatchAsync(new ArrayList<>(batch), executor));
                     batch.clear();
                 }
-            }
+            });
 
             if (!batch.isEmpty()) {
                 futures.add(processBatchAsync(batch, executor));
@@ -72,29 +83,30 @@ public class TradeProcessor {
                 enrichedTrades.addAll(future.get());
             }
 
-        } catch (IOException | InterruptedException | ExecutionException e) {
-            log.error(e.getMessage());
+        } catch (Exception e) {
+            log.error("Error processing trade file: {}", e.getMessage(), e);
             throw new RuntimeException("Error processing trade file", e);
         } finally {
-            executor.shutdown();
+            shutdownExecutor(executor);
         }
 
-        return exporters.get(exportType).export(enrichedTrades);
+        return exporter.export(enrichedTrades);
+
     }
 
-    private Future<List<Map<String, String>>> processBatchAsync(List<String[]> batch, ExecutorService executor) {
+    private Future<List<Map<String, String>>> processBatchAsync(List<Map<String, String>> batch, ExecutorService executor) {
         return executor.submit(() -> {
             List<Map<String, String>> enrichedBatch = new ArrayList<>();
-            List<String> productIds = batch.stream().map(data -> data[1]).collect(Collectors.toList());
+            List<String> productIds = batch.stream().map(trade -> trade.get("productId")).collect(Collectors.toList());
 
             List<String> productNames = redisTemplate.opsForValue().multiGet(productIds);
 
             for (int i = 0; i < batch.size(); i++) {
-                String[] trade = batch.get(i);
-                String date = trade[0];
-                String productId = trade[1];
-                String currency = trade[2];
-                String price = trade[3];
+                Map<String, String> trade = batch.get(i);
+                String date = trade.get("date");
+                String productId = trade.get("productId");
+                String currency = trade.get("currency");
+                String price = trade.get("price");
 
                 if (!isValidDate(date)) {
                     log.error("Invalid date {}, skipping...", date);
@@ -122,13 +134,26 @@ public class TradeProcessor {
     }
 
     private boolean isValidDate(String date) {
-        SimpleDateFormat formatter = new SimpleDateFormat(dateFormat);
+        final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateFormat);
         try {
-            formatter.setLenient(false);
-            formatter.parse(date);
+            LocalDate.parse(date, formatter);
             return true;
-        } catch (ParseException e) {
+        } catch (DateTimeParseException e) {
             return false;
+        }
+    }
+
+    private void shutdownExecutor(ExecutorService executor) {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                log.warn("Forcing executor shutdown...");
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            log.warn("Executor interrupted, forcing shutdown...");
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 }

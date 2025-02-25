@@ -1,4 +1,4 @@
-package org.peter.processor.exporter;
+package org.peter.processor.io.exporter;
 
 import java.util.List;
 import java.util.Map;
@@ -6,6 +6,7 @@ import java.util.Map;
 /**
  * Interface for exporting trade data in different formats.
  */
+// todo enable processing for big files
 public interface TradeExporter {
 
     /**

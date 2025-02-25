@@ -1,8 +1,9 @@
-package org.peter.processor.exporter;
+package org.peter.processor.io.exporter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.peter.processor.io.ProcessType;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,6 +26,6 @@ public class JsonTradeExporter implements TradeExporter {
 
     @Override
     public String getType() {
-        return ExportType.JSON.getType();
+        return ProcessType.JSON.getType();
     }
 }

@@ -1,20 +1,21 @@
 package org.peter.processor.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.peter.processor.exception.UnsupportedFormatException;
+import org.peter.processor.io.ProcessType;
 import org.peter.processor.service.TradeProcessor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -23,13 +24,6 @@ import java.util.Map;
 public class TradeController {
 
     private final TradeProcessor tradeService;
-
-    private static final Map<String, String> formatsMap = Map.of(
-            MediaType.APPLICATION_XML_VALUE, "xml",
-            MediaType.APPLICATION_JSON_VALUE, "json",
-            "text/csv", "csv"
-    );
-
 
     @Operation(
             summary = "Export Enriched Trades",
@@ -44,24 +38,25 @@ public class TradeController {
                     }),
             @ApiResponse(responseCode = "400", description = "Bad request"),
     })
-    @GetMapping("/process")
+    @PostMapping("/process")
     public ResponseEntity<String> exportTrades(
-            @Parameter(description = "Response format: XML, JSON, or CSV", example = "application/json")
-            @RequestHeader(value = HttpHeaders.ACCEPT, defaultValue = "text/csv") String acceptHeader
-            // todo accept data to process
+            @RequestHeader(value = HttpHeaders.ACCEPT, defaultValue = "text/csv") String acceptHeader,
+            @RequestParam("file") MultipartFile file
     ) {
-        String format = formatsMap.getOrDefault(acceptHeader.toLowerCase(), "csv");
 
-        String result;
+        String enrichedData;
         try {
-            result = tradeService.processTrades("data-sample.csv", format);
+            enrichedData = tradeService.processTrades(file.getInputStream(), acceptHeader);
+        } catch (UnsupportedFormatException e) {
+            return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body("Error processing trades: " + e.getMessage());
         }
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=trades." + format)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=trades." +
+                        ProcessType.fromMimeType(acceptHeader).getType())
                 .contentType(MediaType.parseMediaType(acceptHeader))
-                .body(result);
+                .body(enrichedData);
     }
 }

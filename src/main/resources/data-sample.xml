@@ -1,0 +1,20 @@
+<Trades>
+    <Trade>
+        <date>20230104</date>
+        <productId>9</productId>
+        <currency>GBP</currency>
+        <price>500.30</price>
+    </Trade>
+    <Trade>
+        <date>20230105</date>
+        <productId>-10</productId>
+        <currency>USD</currency>
+        <price>550.40</price>
+    </Trade>
+    <Trade>
+        <date>2023</date>
+        <productId>11</productId>
+        <currency>EUR</currency>
+        <price>600.50</price>
+    </Trade>
+</Trades>

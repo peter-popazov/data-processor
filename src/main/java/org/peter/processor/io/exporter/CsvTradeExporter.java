@@ -1,5 +1,6 @@
-package org.peter.processor.exporter;
+package org.peter.processor.io.exporter;
 
+import org.peter.processor.io.ProcessType;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,6 +26,6 @@ public class CsvTradeExporter implements TradeExporter {
 
     @Override
     public String getType() {
-        return ExportType.CSV.name();
+        return ProcessType.CSV.getType();
     }
 }
