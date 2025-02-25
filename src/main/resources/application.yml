@@ -1,0 +1,12 @@
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+
+app:
+  batch-size: 1000
+  thread-count: 4
+  products-file: products.csv
+  date-format: yyyyMMdd
