@@ -1,11 +1,13 @@
 package org.peter.processor.io.exporter;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.peter.processor.io.ProcessType;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -15,13 +17,16 @@ public class JsonTradeExporter implements TradeExporter {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public String export(List<Map<String, String>> trades) {
-        try {
-            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(trades);
-        } catch (JsonProcessingException e) {
-            log.error("Error converting trades to JSON {}", e.getMessage());
-            throw new RuntimeException("Error converting trades to JSON", e);
+    public void writeTrades(BufferedWriter writer, List<Map<String, String>> trades) throws IOException {
+        JsonGenerator jsonGenerator = objectMapper.getFactory().createGenerator(writer);
+        jsonGenerator.writeStartArray();
+
+        for (Map<String, String> trade : trades) {
+            objectMapper.writeValue(jsonGenerator, trade);
         }
+
+        jsonGenerator.writeEndArray();
+        jsonGenerator.flush();
     }
 
     @Override

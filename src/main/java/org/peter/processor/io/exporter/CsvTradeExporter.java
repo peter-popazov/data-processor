@@ -3,25 +3,25 @@ package org.peter.processor.io.exporter;
 import org.peter.processor.io.ProcessType;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class CsvTradeExporter implements TradeExporter {
 
-    @Override
-    public String export(List<Map<String, String>> trades) {
-        StringBuilder csvBuilder = new StringBuilder();
-        csvBuilder.append("date,productId,productName,currency,price\n");
-
+    public void writeTrades(BufferedWriter writer, List<Map<String, String>> trades) throws IOException {
+        writer.write("date,productId,productName,currency,price\n");
         for (Map<String, String> trade : trades) {
-            csvBuilder.append(trade.get("date")).append(",");
-            csvBuilder.append(trade.get("productName")).append(",");
-            csvBuilder.append(trade.get("currency")).append(",");
-            csvBuilder.append(trade.get("price")).append("\n");
+            writer.write(String.join(",",
+                    trade.get("date"),
+                    trade.get("productName"),
+                    trade.get("currency"),
+                    trade.get("price")
+            ) + "\n");
         }
-
-        return csvBuilder.toString();
+        writer.flush();
     }
 
     @Override

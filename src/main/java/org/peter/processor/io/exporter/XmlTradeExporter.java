@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.peter.processor.io.ProcessType;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -15,13 +17,20 @@ public class XmlTradeExporter implements TradeExporter {
     private final XmlMapper xmlMapper = new XmlMapper();
 
     @Override
-    public String export(List<Map<String, String>> trades) {
-        try {
-            return xmlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(trades);
-        } catch (JsonProcessingException e) {
-            log.error("EError converting trades to XML {}", e.getMessage());
-            throw new RuntimeException("Error converting trades to XML", e);
+    public void writeTrades(BufferedWriter writer, List<Map<String, String>> trades) throws IOException {
+        writer.write("<Trades>\n");
+
+        for (Map<String, String> trade : trades) {
+            try {
+                writer.write(xmlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(trade) + "\n");
+            } catch (JsonProcessingException e) {
+                log.error("Error converting trade to XML: {}", e.getMessage());
+                throw new RuntimeException("Error converting trade to XML", e);
+            }
         }
+
+        writer.write("</Trades>\n");
+        writer.flush();
     }
 
     @Override

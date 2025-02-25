@@ -6,17 +6,21 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.peter.processor.exception.UnsupportedFormatException;
 import org.peter.processor.io.ProcessType;
 import org.peter.processor.service.TradeProcessor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.*;
+
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
@@ -39,24 +43,37 @@ public class TradeController {
             @ApiResponse(responseCode = "400", description = "Bad request"),
     })
     @PostMapping("/process")
-    public ResponseEntity<String> exportTrades(
+    public void exportTrades(
+            HttpServletResponse response,
             @RequestHeader(value = HttpHeaders.ACCEPT, defaultValue = "text/csv") String acceptHeader,
             @RequestParam("file") MultipartFile file
     ) {
+        response.setContentType(acceptHeader);
+        response.setHeader("Content-Disposition", "attachment; filename=trades." + ProcessType.fromMimeType(acceptHeader).name().toLowerCase());
 
-        String enrichedData;
-        try {
-            enrichedData = tradeService.processTrades(file.getInputStream(), acceptHeader);
+        try (InputStream inputStream = file.getInputStream();
+             OutputStream outputStream = response.getOutputStream();
+             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream))) {
+
+            tradeService.processTrades(inputStream, acceptHeader, writer);
+
+            writer.flush();
+
         } catch (UnsupportedFormatException e) {
-            return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(e.getMessage());
+            response.setStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE.value());
+            try {
+                response.getWriter().write(e.getMessage());
+            } catch (IOException ex) {
+                log.error("Error writing error response", ex);
+            }
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error processing trades: " + e.getMessage());
+            response.setStatus(HttpStatus.BAD_REQUEST.value());
+            try {
+                response.getWriter().write("Error processing trades: " + e.getMessage());
+            } catch (IOException ex) {
+                log.error("Error writing error response", ex);
+            }
         }
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=trades." +
-                        ProcessType.fromMimeType(acceptHeader).getType())
-                .contentType(MediaType.parseMediaType(acceptHeader))
-                .body(enrichedData);
     }
+
 }

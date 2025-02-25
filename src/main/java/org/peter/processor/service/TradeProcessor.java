@@ -1,6 +1,5 @@
 package org.peter.processor.service;
 
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.peter.processor.exception.UnsupportedFormatException;
 import org.peter.processor.io.ProcessType;
@@ -11,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -19,9 +20,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -50,12 +51,10 @@ public class TradeProcessor {
         this.importers = importers.stream().collect(Collectors.toMap(TradeImporter::getType, importer -> importer));
     }
 
-    @SneakyThrows
-    public String processTrades(InputStream inputStream, String acceptHeader) {
+
+    public void processTrades(InputStream inputStream, String acceptHeader, BufferedWriter writer) {
         String format = ProcessType.fromMimeType(acceptHeader).getType();
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-        List<Future<List<Map<String, String>>>> futures = new ArrayList<>();
-        List<Map<String, String>> enrichedTrades = new ArrayList<>();
         TradeImporter importer = importers.get(format);
         TradeExporter exporter = exporters.get(format);
 
@@ -64,11 +63,11 @@ public class TradeProcessor {
         }
 
         try (Stream<Map<String, String>> tradeStream = importer.importData(inputStream)) {
-
             List<Map<String, String>> batch = new ArrayList<>();
+            List<CompletableFuture<List<Map<String, String>>>> futures = new ArrayList<>();
+
             tradeStream.forEach(trade -> {
                 batch.add(trade);
-
                 if (batch.size() >= batchSize) {
                     futures.add(processBatchAsync(new ArrayList<>(batch), executor));
                     batch.clear();
@@ -79,30 +78,43 @@ public class TradeProcessor {
                 futures.add(processBatchAsync(batch, executor));
             }
 
-            for (Future<List<Map<String, String>>> future : futures) {
-                enrichedTrades.addAll(future.get());
-            }
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .thenApply(v -> futures.stream()
+                            .map(CompletableFuture::join)
+                            .flatMap(List::stream) // Flatten lists
+                            .collect(Collectors.toList()))
+                    .thenAccept(trades -> {
+                        try {
+                            exporter.writeTrades(writer, trades);
+                        } catch (IOException e) {
+                            log.error("Error writing trades: {}", e.getMessage(), e);
+                        }
+                    }).exceptionally(ex -> {
+                        log.error("Error processing trades: {}", ex.getMessage(), ex);
+                        return null;
+                    }).join();
 
         } catch (Exception e) {
-            log.error("Error processing trade file: {}", e.getMessage(), e);
-            throw new RuntimeException("Error processing trade file", e);
+            log.error("Error processing trades: {}", e.getMessage(), e);
+            throw new RuntimeException("Error processing trades", e);
         } finally {
             shutdownExecutor(executor);
         }
-
-        return exporter.export(enrichedTrades);
-
     }
 
-    private Future<List<Map<String, String>>> processBatchAsync(List<Map<String, String>> batch, ExecutorService executor) {
-        return executor.submit(() -> {
+    private CompletableFuture<List<Map<String, String>>> processBatchAsync(List<Map<String, String>> batch, ExecutorService executor) {
+        return CompletableFuture.supplyAsync(() -> {
             List<Map<String, String>> enrichedBatch = new ArrayList<>();
             List<String> productIds = batch.stream().map(trade -> trade.get("productId")).collect(Collectors.toList());
 
+            Map<String, String> productMap = new HashMap<>();
             List<String> productNames = redisTemplate.opsForValue().multiGet(productIds);
 
-            for (int i = 0; i < batch.size(); i++) {
-                Map<String, String> trade = batch.get(i);
+            for (int i = 0; i < productIds.size(); i++) {
+                productMap.put(productIds.get(i), productNames != null && productNames.get(i) != null ? productNames.get(i) : "Missing Product Name");
+            }
+
+            for (Map<String, String> trade : batch) {
                 String date = trade.get("date");
                 String productId = trade.get("productId");
                 String currency = trade.get("currency");
@@ -113,9 +125,7 @@ public class TradeProcessor {
                     continue;
                 }
 
-                String productName = (productNames != null && i < productNames.size() && productNames.get(i) != null)
-                        ? productNames.get(i)
-                        : "Missing Product Name";
+                String productName = productMap.getOrDefault(productId, "Missing Product Name");
 
                 if ("Missing Product Name".equals(productName)) {
                     log.error("Missing Product Name for id {}", productId);
@@ -130,7 +140,7 @@ public class TradeProcessor {
                 enrichedBatch.add(tradeData);
             }
             return enrichedBatch;
-        });
+        }, executor);
     }
 
     private boolean isValidDate(String date) {

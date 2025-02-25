@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -21,7 +20,7 @@ import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 @Slf4j
-@Service
+//@Service
 @RequiredArgsConstructor
 public class ProductsLoader {
 
