@@ -32,6 +32,8 @@
         -F "file=@src/main/resources/data-sample.csv" \
         -o output.csv
   ```
+#### Precautions
+If IDE/Postman is laggy, logs can be turned off (currently _on_ as it was needed by the task description).
 
 ## Design Discussion (implemented)
 
