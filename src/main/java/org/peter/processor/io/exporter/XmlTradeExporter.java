@@ -1,7 +1,10 @@
 package org.peter.processor.io.exporter;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
 import lombok.extern.slf4j.Slf4j;
 import org.peter.processor.io.ProcessType;
 import org.springframework.stereotype.Service;
@@ -22,7 +25,8 @@ public class XmlTradeExporter implements TradeExporter {
 
         for (Map<String, String> trade : trades) {
             try {
-                writer.write(xmlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(trade) + "\n");
+                Trade tradeWrapper = new Trade(trade);
+                writer.write(xmlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(tradeWrapper) + "\n");
             } catch (JsonProcessingException e) {
                 log.error("Error converting trade to XML: {}", e.getMessage());
                 throw new RuntimeException("Error converting trade to XML", e);
@@ -37,4 +41,28 @@ public class XmlTradeExporter implements TradeExporter {
     public String getType() {
         return ProcessType.XML.getType();
     }
+
+    @JacksonXmlRootElement(localName = "Trade")
+    private static class Trade {
+
+        @JacksonXmlProperty(localName = "date")
+        private final String date;
+
+        @JacksonXmlProperty(localName = "price")
+        private final String price;
+
+        @JacksonXmlProperty(localName = "currency")
+        private final String currency;
+
+        @JacksonXmlProperty(localName = "productName")
+        private final String productName;
+
+        public Trade(Map<String, String> properties) {
+            this.date = properties.getOrDefault("date", "");
+            this.productName = properties.getOrDefault("productName", "");
+            this.currency = properties.getOrDefault("currency", "");
+            this.price = properties.getOrDefault("price", "");
+        }
+    }
+
 }

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @RestController
@@ -55,24 +56,26 @@ public class TradeController {
              OutputStream outputStream = response.getOutputStream();
              BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream))) {
 
-            tradeService.processTrades(inputStream, acceptHeader, writer);
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
+                    tradeService.processTrades(inputStream, acceptHeader, writer)
+            );
 
+            future.join(); // Wait for all async processing to complete
             writer.flush();
 
         } catch (UnsupportedFormatException e) {
-            response.setStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE.value());
-            try {
-                response.getWriter().write(e.getMessage());
-            } catch (IOException ex) {
-                log.error("Error writing error response", ex);
-            }
+            handleErrorResponse(response, HttpStatus.UNSUPPORTED_MEDIA_TYPE, e.getMessage());
         } catch (Exception e) {
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            try {
-                response.getWriter().write("Error processing trades: " + e.getMessage());
-            } catch (IOException ex) {
-                log.error("Error writing error response", ex);
-            }
+            handleErrorResponse(response, HttpStatus.BAD_REQUEST, "Error processing trades: " + e.getMessage());
+        }
+    }
+
+    private void handleErrorResponse(HttpServletResponse response, HttpStatus status, String message) {
+        response.setStatus(status.value());
+        try {
+            response.getWriter().write(message);
+        } catch (IOException ex) {
+            log.error("Error writing error response", ex);
         }
     }
 

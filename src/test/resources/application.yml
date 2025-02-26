@@ -1,0 +1,5 @@
+app:
+  batch-size: 2
+  thread-count: 2
+  products-file: test-products.csv
+  date-format: yyyyMMdd

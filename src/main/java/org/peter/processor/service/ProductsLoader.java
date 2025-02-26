@@ -5,22 +5,23 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
 @Slf4j
-//@Service
+@Component
 @RequiredArgsConstructor
 public class ProductsLoader {
 
@@ -40,8 +41,10 @@ public class ProductsLoader {
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
         List<Future<Void>> futures = new ArrayList<>();
 
-        try (BufferedReader br = new BufferedReader(new FileReader(new ClassPathResource(productsFile).getFile()))) {
-            br.readLine();
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(
+                new ClassPathResource(productsFile).getInputStream(), StandardCharsets.UTF_8))) {
+
+            br.readLine(); // Skip header
             List<String[]> batch = new ArrayList<>();
 
             String line;
@@ -50,7 +53,7 @@ public class ProductsLoader {
                 if (columns.length == 2) {
                     batch.add(new String[]{columns[0].trim(), columns[1].trim()});
                 } else {
-                    log.error("Error parsing line: {}", line);
+                    log.warn("Skipping invalid line: {}", line);
                 }
 
                 if (batch.size() >= batchSize) {
@@ -64,11 +67,11 @@ public class ProductsLoader {
             }
 
             for (Future<Void> future : futures) {
-                future.get();
+                future.get(); // Ensure all tasks are completed
             }
 
         } catch (IOException | InterruptedException | ExecutionException e) {
-            log.error(e.getMessage());
+            log.error("Error processing product file: {}", e.getMessage(), e);
             throw new RuntimeException("Error reading product CSV file", e);
         } finally {
             executor.shutdown();
@@ -77,9 +80,14 @@ public class ProductsLoader {
 
     private Future<Void> processBatchAsync(List<String[]> batch, ExecutorService executor) {
         return executor.submit(() -> {
-            Map<String, String> productMap = batch.stream()
-                    .collect(Collectors.toMap(data -> data[0], data -> data[1]));
-            redisTemplate.opsForValue().multiSet(productMap);
+            redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+                for (String[] data : batch) {
+                    connection.set(data[0].getBytes(StandardCharsets.UTF_8),
+                            data[1].getBytes(StandardCharsets.UTF_8));
+                }
+                return null;
+            });
+
             log.info("Processed batch of {} products.", batch.size());
             return null;
         });

@@ -10,5 +10,5 @@
   {"date": "20230109", "productId": 6, "currency": "EUR", "price": 1400.40},
   {"date": "20230110", "productId": 7, "currency": "GBP", "price": 1500.50},
   {"date": "20131231", "productId": 10, "currency": "USD", "price": 1600.60},
-  {"date": "invalidDate", "productId": 1, "currency": "EUR", "price": 1700.70},
+  {"date": "invalidDate", "productId": 1, "currency": "EUR", "price": 1700.70}
 ]

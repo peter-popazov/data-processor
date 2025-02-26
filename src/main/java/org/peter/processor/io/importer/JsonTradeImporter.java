@@ -57,8 +57,12 @@ public class JsonTradeImporter implements TradeImporter {
                     return false;
                 }
 
+                if (parser.nextToken() == null) {
+                    return false;
+                }
+
                 Map<String, Object> trade = objectMapper.readValue(parser, Map.class);
-                log.debug("Parsed JSON Object: {}", trade); // ✅ Log parsed data
+                log.debug("Parsed JSON Object: {}", trade);
 
                 // Convert values to String
                 Map<String, String> tradeAsString = trade.entrySet().stream()

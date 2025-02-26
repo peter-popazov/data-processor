@@ -5,7 +5,7 @@
 1. **Configure Application Properties** (optional)
    Ensure you have the necessary configuration in  `application.yml`:
    ```properties
-   app.batch-size=100
+   app.batch-size=1000
    app.thread-count=5
    app.date-format=yyyyMMdd
    ```
@@ -28,11 +28,11 @@
 - **Example Request (cURL):**
   ```sh
   curl -X POST "http://localhost:8080/process" \
-       -H "Accept: application/json" \
+       -H "Accept: text/csv" \
        -F "file=@trades.csv"
   ```
 
-## Design Discussion
+## Design Discussion (implemented)
 
 - **Strategy Design Pattern in Spring way i.e. pluggable import/export:**
     - Uses the `TradeImporter` and `TradeExporter` interfaces to allow different formats (CSV, JSON, XML) without
@@ -40,9 +40,11 @@
 - **Batch Processing:**
     - The service processes trades in batches to optimize performance and reduce memory usage.
     - Uses an `ExecutorService` to parallelize batch processing.
-- **Redis for Enrichment:**
-    - Product names are fetched from Redis to enrich trade data.
-    - If a product ID is not found, it is logged as "Missing Product Name."
+
+## Test results
+
+![img.png](images/test-results.png)
+
 
 ## Ideas for Improvement
 

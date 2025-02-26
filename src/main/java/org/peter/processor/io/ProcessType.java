@@ -24,6 +24,16 @@ public enum ProcessType {
     }
 
     public static ProcessType fromMimeType(String mimeType) {
-        return lookup.get(mimeType.toLowerCase());
+        if (mimeType == null) {
+            throw new IllegalArgumentException("MIME type cannot be null");
+        }
+
+        ProcessType processType = lookup.get(mimeType.toLowerCase());
+        if (processType == null) {
+            throw new UnsupportedOperationException("Unsupported MIME type: " + mimeType);
+        }
+        return processType;
     }
+
 }
+

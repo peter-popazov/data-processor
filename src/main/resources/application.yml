@@ -10,7 +10,10 @@ spring:
 
 
 app:
-  batch-size: 1000
-  thread-count: 4
+  batch-size: 20000
+  thread-count: 2
   products-file: products.csv
   date-format: yyyyMMdd
+
+server:
+  port: 8081

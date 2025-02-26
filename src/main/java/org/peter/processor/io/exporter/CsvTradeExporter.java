@@ -12,7 +12,7 @@ import java.util.Map;
 public class CsvTradeExporter implements TradeExporter {
 
     public void writeTrades(BufferedWriter writer, List<Map<String, String>> trades) throws IOException {
-        writer.write("date,productId,productName,currency,price\n");
+        writer.write("date,productName,currency,price\n");
         for (Map<String, String> trade : trades) {
             writer.write(String.join(",",
                     trade.get("date"),
