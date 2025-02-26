@@ -11,35 +11,65 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class XmlTradeExporterTest {
+import org.junit.jupiter.api.BeforeEach;
 
-    private final XmlTradeExporter xmlTradeExporter = new XmlTradeExporter();
-    private final XmlMapper xmlMapper = new XmlMapper();
+class XmlTradeExporterTest {
+    private XmlTradeExporter exporter;
+
+    @BeforeEach
+    void setUp() {
+        exporter = new XmlTradeExporter();
+    }
 
     @Test
-    void testWriteTrades_WritesValidXmlToBufferedWriter() throws IOException {
+    void testWriteTrades() throws IOException {
         StringWriter stringWriter = new StringWriter();
-        BufferedWriter bufferedWriter = new BufferedWriter(stringWriter);
+        BufferedWriter writer = new BufferedWriter(stringWriter);
 
         List<Map<String, String>> trades = List.of(
-                Map.of("date", "2025-02-26", "productName", "Apple", "currency", "USD", "price", "10.5"),
-                Map.of("date", "2025-02-27", "productName", "Banana", "currency", "EUR", "price", "5.0")
+                Map.of("date", "2024-02-25", "productName", "Apple", "currency", "USD", "price", "10.50"),
+                Map.of("date", "2024-02-26", "productName", "Banana", "currency", "EUR", "price", "8.30")
         );
 
-        xmlTradeExporter.writeTrades(bufferedWriter, trades);
-        bufferedWriter.close();
+        exporter.writeTrades(writer, trades);
+        writer.close();
 
-        StringBuilder expectedXml = new StringBuilder("<Trades>\n");
-        for (Map<String, String> trade : trades) {
-            expectedXml.append(xmlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(trade)).append("\n");
-        }
-        expectedXml.append("</Trades>\n");
+        String expectedXml = """
+                <Trades>
+                <Trade>
+                  <date>2024-02-25</date>
+                  <price>10.50</price>
+                  <currency>USD</currency>
+                  <productName>Apple</productName>
+                </Trade>
+                
+                <Trade>
+                  <date>2024-02-26</date>
+                  <price>8.30</price>
+                  <currency>EUR</currency>
+                  <productName>Banana</productName>
+                </Trade>
+                
+                </Trades>
+                """.trim();
 
-        assertEquals(expectedXml.toString(), stringWriter.toString());
+        assertEquals(expectedXml, stringWriter.toString().trim());
+    }
+
+    @Test
+    void testWriteTradesEmptyList() throws IOException {
+        StringWriter stringWriter = new StringWriter();
+        BufferedWriter writer = new BufferedWriter(stringWriter);
+
+        exporter.writeTrades(writer, List.of());
+        writer.close();
+
+        String expectedXml = "<Trades>\n</Trades>";
+        assertEquals(expectedXml, stringWriter.toString().trim());
     }
 
     @Test
     void testGetType_ReturnsCorrectType() {
-        assertEquals("application/xml", xmlTradeExporter.getType());
+        assertEquals("application/xml", exporter.getType());
     }
 }
