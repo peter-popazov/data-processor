@@ -10,8 +10,8 @@ spring:
 
 
 app:
-  batch-size: 20000
-  thread-count: 2
+  batch-size: 10000
+  thread-count: 5
   products-file: products.csv
   date-format: yyyyMMdd
 

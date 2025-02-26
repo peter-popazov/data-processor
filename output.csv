@@ -1,0 +1,23 @@
+date,productName,currency,price
+20230101,Commodity Swaps 1,USD,100.25
+20230101,Commodity Swaps,EUR,200.45
+20230101,FX Forward,GBP,300.50
+20230102,Government Bonds Domestic,USD,150.75
+20230102,Convertible Bonds Domestic,EUR,250.85
+20230103,Corporate Bonds International,GBP,350.95
+20230103,Interest Rate Futures,USD,400.10
+20230104,Overnight Index Swaps,EUR,450.20
+20230104,Credit Default Swaps,GBP,500.30
+20230105,Inflation-Linked Bonds,USD,550.40
+20230105,Missing Product Name,EUR,600.50
+20230106,Commodity Swaps,USD,700.60
+20230106,FX Forward,EUR,800.70
+20230107,Missing Product Name,GBP,900.80
+20230107,Missing Product Name,USD,1000.90
+20230108,Commodity Swaps 1,EUR,1100.10
+20230108,Government Bonds Domestic,GBP,1200.20
+20230109,Convertible Bonds Domestic,USD,1300.30
+20230109,Corporate Bonds International,EUR,1400.40
+20230110,Interest Rate Futures,GBP,1500.50
+20131231,Inflation-Linked Bonds,USD,1600.60
+20230111,Convertible Bonds Domestic,GBP,1800.80
