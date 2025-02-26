@@ -45,7 +45,10 @@
 
 ![img.png](images/test-results.png)
 
-
+## Implemented from optional section 
+- Optional Enhancements: Support for JSON & XML 
+- Optional Enhancements: Async Processing
+  
 ## Ideas for Improvement
 
 __Solution is designed and implemented with a great though put into finding balance between implementing and completing
