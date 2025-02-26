@@ -27,9 +27,10 @@
     - `file`: A file containing trade data.
 - **Example Request (cURL):**
   ```sh
-  curl -X POST "http://localhost:8080/process" \
-       -H "Accept: text/csv" \
-       -F "file=@trades.csv"
+   curl -X POST "http://localhost:8081/api/v1/process" \
+        -H "Accept: text/csv" \
+        -F "file=@src/main/resources/data-sample.csv" \
+        -o output.csv
   ```
 
 ## Design Discussion (implemented)
