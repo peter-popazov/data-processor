@@ -15,6 +15,10 @@
    mvn clean install
    mvn spring-boot:run
    ```
+3. **Start Redis Servier**
+   ```sh
+   redis-server
+   ```
 
 ## How to Use the API
 
@@ -59,7 +63,7 @@ the test task in a timely manner__
 
 1. **Spring Web Flux:**
     - Can be used to make the trade processing service more reactive and memory-efficient
-2. **Asynchronous Processing with Queues:**
-    - Use Kafka or RabbitMQ to offload trade processing to a background worker.
-3. **Better Error Handling:**
+2. **Better Error Handling:**
     - Provide a summary of skipped/invalid records in the API response/implement GlobalExceptionHandler
+3. **Asynchronous Processing with Queues:**
+    - Use Kafka or RabbitMQ to offload trade processing to a background worker.
